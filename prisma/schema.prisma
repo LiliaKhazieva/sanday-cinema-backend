@@ -15,7 +15,9 @@ datasource db {
 }
 
 model Movie {
-  id String @id @default(cuid())
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   title String
   image String
@@ -26,11 +28,11 @@ model Movie {
   ageRating   AgeRating @map("age_rating")
   developer   String
   publisher   String
+  genres      Genre[]
 
-  genres Genre[]
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  discountPrice       Float      @map("discount_price")
+  isHasSecondDiscount Boolean    @default(false) @map("is_has_second_discount")
+  cartItems           CartItem[]
 
   @@map("movie")
 }
@@ -47,4 +49,135 @@ enum AgeRating {
   E // Everyone
   T // Teen
   AO // Adults Only 18+
+}
+
+model Cart {
+  id String @id @default(cuid())
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade, name: "UserCarts")
+
+  order Order?
+
+  status CartStatus @default(ACTIVE)
+
+  items CartItem[]
+}
+
+model CartItem {
+  id String @id @default(cuid())
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  cartId String @map("cart_id")
+  cart   Cart   @relation(fields: [cartId], references: [id], onDelete: Cascade)
+
+  productId String @map("product_id")
+  movie     Movie  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  asSecondItem Boolean @default(false) @map("as_second_item")
+
+  quantity Int
+}
+
+enum CartStatus {
+  ACTIVE
+  PAID
+}
+
+model User {
+  id         String  @id @default(cuid())
+  email      String  @unique
+  name       String?
+  password   String
+  avatarPath String?
+
+  verificationToken String? @default(cuid()) @map("verification_token")
+
+  rights Role[] @default([USER])
+
+  transactions Transaction[]
+
+  carts Cart[] @relation("UserCarts")
+
+  orders Order[]
+}
+
+enum Role {
+  USER
+  PREMIUM
+  MANAGER
+  ADMIN
+}
+
+model Order {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  cart   Cart   @relation(fields: [cartId], references: [id])
+  cartId String @unique @map("cart_id")
+
+  status OrderStatus
+
+  promoCodeId String?    @map("promo_code_id")
+  promoCode   PromoCode? @relation(fields: [promoCodeId], references: [id], onDelete: Cascade)
+
+  total Float
+
+  transactionId Int? @unique @map("transaction_id")
+
+  transaction Transaction? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+}
+
+enum OrderStatus {
+  pending
+  processing
+  completed
+  canceled
+}
+
+model Transaction {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  paymentId     String  @unique @map("payment_id")
+  paymentMethod String? @map("payment_method")
+
+  amount String
+
+  status TransactionsStatus
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @map("user_id")
+
+  order Order?
+
+  @@map("transaction")
+}
+
+enum TransactionsStatus {
+  pending
+  waiting_for_capture
+  succeeded
+  canceled
+  refunded
+}
+
+model PromoCode {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  code     String  @unique
+  discount Float
+  orders   Order[]
 }
